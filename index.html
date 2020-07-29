@@ -28,16 +28,24 @@
             <button class="btn btn-primary" type="button" onclick="getClientCount()">Go</button>
           </div>
           <input id="api_token" type="text" class="form-control" placeholder="DNA Spaces Detect & Locate API Token" aria-label="Example text with button addon" aria-describedby="button-addon1">
+          <div class="col-sm-3">
+            <small id="api_token_help" class="text-danger">
+            </small>
+          </div>
         </div>
       </div>
     </div>
     <div class="card">
       <h5 class="card-header">Floor count table</h5>
       <div class="card-body">
-      <table id="floor_count" class="table table-striped">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
+        <small id="status_floors" class="text-muted">
+        </small>
+        <small id="status_hierarchy" class="text-muted">
+        </small>
+        <table id="floor_count" class="table table-striped">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
     <div class="container">
