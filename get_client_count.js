@@ -132,7 +132,7 @@ function drawVis(all_data){
     .enter().append("rect")
       .attr("class", "bar")
       .attr("x", function(d) { return x(d.name); })
-      .attr("width", x.bandwidth())
+      .attr("width", Math.min(x.bandwidth(), 100))
       .attr("y", function(d) { return y(d.count); })
       .attr("height", function(d) { return height - y(d.count); });
 
