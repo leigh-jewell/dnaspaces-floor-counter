@@ -26,8 +26,6 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                 'width': formatDecimalComma(f.details.width/3.3),
                 'length': formatDecimalComma(f.details.length/3.3)
             };
-            console.log("getFloorNames(): width ", f.details.width);
-            console.log("getFloorNames(): length ", f.details.length);
             if (DEBUG_DATA){
                 console.log("getFloorNames():", b.name, f.id, f.name);
             }
@@ -91,15 +89,11 @@ function create_table(table_data) {
 
 function drawVis(all_data){
     const MAX_DATA = 15;
-    console.log("drawVis(): all data ", all_data);
     all_data = all_data.sort(function (a, b) {
             return d3.ascending(b.count, a.count);
     })
     // Take the top largest elements from data so arrary is not too big.
     var data = all_data.slice(0, MAX_DATA);
-
-    console.log("drawVis(): data", data);
-
     // set the dimensions and margins of the graph
     var margin = {top: 50, right: 20, bottom: 180, left: 50},
             width = 1200 - margin.left - margin.right,
