@@ -1,4 +1,5 @@
 const DEBUG_DATA = false;
+const IMAGE_URL = "https://dnaspaces.io/api/location/v1/map/images/floor/"
 
 function getToken(){
     const api_token = document.getElementById('api_token').value;
@@ -20,11 +21,13 @@ function getFloorNames(floor_count_data, hierarchy_data) {
         let building_floors = b.relationshipData.children;
         building_count += 1;
         building_floors.forEach(function (f) {
+            console.log("getFloorNames(): image name", f.details.image.imageName);
             floor_names[f.id] = {
                 'name':f.name,
                 'building':b.name,
                 'width': formatDecimalComma(f.details.width/3.3),
-                'length': formatDecimalComma(f.details.length/3.3)
+                'length': formatDecimalComma(f.details.length/3.3),
+                'imageName': IMAGE_URL.concat(f.details.image.imageName)
             };
             if (DEBUG_DATA){
                 console.log("getFloorNames():", b.name, f.id, f.name);
@@ -37,24 +40,29 @@ function getFloorNames(floor_count_data, hierarchy_data) {
     console.log("getFloorNames(): Add floor names to count");
     let floor_data_names = [];
     floor_count_data.forEach(function (d) {
-        floor_data_names.push({
-            'building': floor_names[d.floorId].building,
-            'name': floor_names[d.floorId].building + ":" + floor_names[d.floorId].name,
-            'floor_name': floor_names[d.floorId].name,
-            'width': floor_names[d.floorId].width,
-            'length': floor_names[d.floorId].length,
-            'floorId': d.floorId,
-            'count': d.count
-        });
-        if (DEBUG_DATA) {
-            console.log("getFloorNames(): Found floor name", floor_names[d.floorId]);
+        if (d.floorId in floor_names){
+            floor_data_names.push({
+                    'building': floor_names[d.floorId].building,
+                    'name': floor_names[d.floorId].building + ":" + floor_names[d.floorId].name,
+                    'floorName': floor_names[d.floorId].name,
+                    'width': floor_names[d.floorId].width,
+                    'length': floor_names[d.floorId].length,
+                    'floorId': d.floorId,
+                    'imageName': floor_names[d.floorId].imageName,
+                    'count': d.count
+            });
+            if (DEBUG_DATA) {
+                console.log("getFloorNames(): Found floor name", floor_names[d.floorId]);
+            }
+        } else {
+                console.log("getFloorNames(): Could not find ${d.floorId} in hierachy. Skipping.")
         }
     });
     return floor_data_names;
 }
 
 function getFloorCount(floor_count_raw) {
-    console.log("getFloorCount(): Get floor count from data. Total raw records ", floor_count_raw.length);
+    console.log("getFloorCount(): Get floor count from data.");
     let floor_data = [];
     let floor_list = floor_count_raw.results;
     let number_floors = 0;
@@ -71,19 +79,46 @@ function getFloorCount(floor_count_raw) {
 function create_table(table_data) {
     console.log("create_table(): Creating table with data. Total records ", table_data.length)
     // create the table header
-    d3.select('#floor_count').selectAll('tr').remove();
+    headers = [
+        "Building Name",
+        "Floor Name",
+        "Width",
+        "Length",
+        "Count"
+    ]
     var thead = d3.select("thead").selectAll("th")
-      .data(d3.keys(table_data[0]))
+      .data(headers)
       .enter().append("th").text(function(d){return d});
     // fill the table
     // create rows
     var tr = d3.select("tbody").selectAll("tr")
-        .data(table_data).enter().append("tr")
+        .data(table_data)
+        .enter()
+        .append("tr")
+        .on("click", function(d) { fetchImageAndDisplay(d.imageName); });
     // cells
-    var td = tr.selectAll("td")
-        .data(function(d){return d3.values(d)})
-        .enter().append("td")
-        .text(function(d) {return d})
+//    var td = tr.selectAll("td")
+//        .data(function(d){ return d3.values(d) })
+//        .enter().append("td")
+//        .text(function(d) { return d })
+    var last_url;
+    tr.each(function(d) {
+       	var self = d3.select(this);
+            self.append("td")
+                .text(d.building);
+            self.append("td")
+                .text(d.floorName);
+            self.append("td")
+                .text(d.width);
+            self.append("td")
+                .text(d.length);
+        	self.append("td")
+        		.text(d.count);
+        	last_url = d.imageName;
+      });
+
+    console.log("Image", last_url);
+//    fetchImageAndDisplay(last_url);
     return;
 };
 
@@ -96,7 +131,7 @@ function drawVis(all_data){
     var data = all_data.slice(0, MAX_DATA);
     // set the dimensions and margins of the graph
     var margin = {top: 50, right: 20, bottom: 180, left: 50},
-            width = 1200 - margin.left - margin.right,
+        width = 1200 - margin.left - margin.right,
         height = 600 - margin.top - margin.bottom;
 
     // set the ranges
@@ -167,6 +202,39 @@ function drawVis(all_data){
         .style("text-decoration", "underline")
         .text("Top floor counts");
 
+}
+
+// Converts any given blob into a base64 encoded string.
+function convertBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      resolve(reader.result);
+    };
+    reader.readAsDataURL(blob);
+
+  });
+
+}
+
+async function fetchImageAndDisplay(url){
+    console.log("fetchImageAndDisplay():", url);
+    const image = document.getElementById("image");
+    const token = getToken();
+    try {
+        const fetchResult = await fetch(url, {
+            headers: new Headers({
+                "Authorization": token
+            }),
+        })
+        image.style.width = '50%'
+        image.style.height = 'auto'
+        image.src = await convertBlobToBase64(await fetchResult.blob());
+        console.log("fetchImageAndDisplay(): Finished.")
+      } catch (error) {
+        console.error(error);
+        }
 }
 
 function getClientCount(){
