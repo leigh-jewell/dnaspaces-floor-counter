@@ -11,37 +11,44 @@ function getFloorNames(floor_count_data, hierarchy_data) {
     console.log("getFloorNames(): Adding names to floor counts using hierarchy data.");
     console.log("getFloorNames(): Firs record of floor_count_data ", floor_count_data[0]);
     console.log("getFloorNames(): Hierarchy_data ", hierarchy_data.map[0]);
+    let campus_count = 0;
     let building_count = 0;
     let floor_count = 0;
     let floor_names = {};
+    let formatDecimalComma = d3.format(",.2f")
     floor_names['floorId'] = [];
-    let building_data = hierarchy_data.map[0].relationshipData.children;
-    var formatDecimalComma = d3.format(",.2f")
-    building_data.forEach(function (b) {
-        let building_floors = b.relationshipData.children;
-        building_count += 1;
-        building_floors.forEach(function (f) {
-            console.log("getFloorNames(): image name", f.details.image.imageName);
-            floor_names[f.id] = {
-                'name':f.name,
-                'building':b.name,
-                'width': formatDecimalComma(f.details.width/3.3),
-                'length': formatDecimalComma(f.details.length/3.3),
-                'imageName': IMAGE_URL.concat(f.details.image.imageName)
-            };
-            if (DEBUG_DATA){
-                console.log("getFloorNames():", b.name, f.id, f.name);
-            }
-            floor_count += 1;
+    hierarchy_data.map.forEach(function (campus){
+        campus_count += 1;
+        let building_data = campus.relationshipData.children;
+        building_data.forEach(function (b) {
+            let building_floors = b.relationshipData.children;
+            building_count += 1;
+            building_floors.forEach(function (f) {
+                console.log("getFloorNames(): image name", f.details.image.imageName);
+                floor_names[f.id] = {
+                    'name':f.name,
+                    'campus':campus.name,
+                    'building':b.name,
+                    'width': formatDecimalComma(f.details.width/3.3),
+                    'length': formatDecimalComma(f.details.length/3.3),
+                    'imageName': IMAGE_URL.concat(f.details.image.imageName)
+                };
+                if (DEBUG_DATA){
+                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name);
+                }
+                floor_count += 1;
+            })
+        });
         })
-    });
     document.getElementById('status_hierarchy').textContent = "Hierarchy data: Buildings " + building_count +
         " , Floors " + floor_count;
     console.log("getFloorNames(): Add floor names to count");
     let floor_data_names = [];
+    let missed_floors = 0
     floor_count_data.forEach(function (d) {
         if (d.floorId in floor_names){
             floor_data_names.push({
+                    'campus': floor_names[d.floorId].campus,
                     'building': floor_names[d.floorId].building,
                     'name': floor_names[d.floorId].name,
                     'floorName': floor_names[d.floorId].name,
@@ -55,9 +62,11 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                 console.log("getFloorNames(): Found floor name", floor_names[d.floorId]);
             }
         } else {
-                console.log("getFloorNames(): Could not find ${d.floorId} in hierachy. Skipping.")
+                console.log("getFloorNames(): Could not find floor id in hierachy. Skipping.", d.floorId)
+                missed_floors += 1;
         }
     });
+    console.log("Total number of floors missed", missed_floors);
     return floor_data_names;
 }
 
