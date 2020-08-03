@@ -43,7 +43,7 @@ function getFloorNames(floor_count_data, hierarchy_data) {
         if (d.floorId in floor_names){
             floor_data_names.push({
                     'building': floor_names[d.floorId].building,
-                    'name': floor_names[d.floorId].building + ":" + floor_names[d.floorId].name,
+                    'name': floor_names[d.floorId].name,
                     'floorName': floor_names[d.floorId].name,
                     'width': floor_names[d.floorId].width,
                     'length': floor_names[d.floorId].length,
@@ -77,16 +77,26 @@ function getFloorCount(floor_count_raw) {
 }
 
 function create_table(table_data) {
-    console.log("create_table(): Creating table with data. Total records ", table_data.length)
+    console.log("create_table(): Creating table with data. Total records ", table_data.length);
+    d3.select("table").remove();
+    var table_body = d3.select("#floor_count_table").append("table")
+        .append("table").attr("class", "table table-striped")
+        .append("tbody");
+
+    var table_headere = table_body.append("th");
+
     // create the table header
     headers = [
+        "Reference",
         "Building Name",
         "Floor Name",
+        "Floor Id",
         "Width",
         "Length",
         "Count"
     ]
-    var thead = d3.select("thead").selectAll("th")
+//    var thead = d3.select("thead").selectAll("th")
+    table_headere
       .data(headers)
       .enter().append("th").text(function(d){return d});
     // fill the table
@@ -97,28 +107,26 @@ function create_table(table_data) {
         .append("tr")
         .on("click", function(d) { fetchImageAndDisplay(d.imageName); });
     // cells
-//    var td = tr.selectAll("td")
-//        .data(function(d){ return d3.values(d) })
-//        .enter().append("td")
-//        .text(function(d) { return d })
     var last_url;
-    tr.each(function(d) {
+    tr.each(function(d, i) {
        	var self = d3.select(this);
+            self.append("td")
+                .text(i);
             self.append("td")
                 .text(d.building);
             self.append("td")
                 .text(d.floorName);
+            self.append("td")
+                .text(d.floorId);
             self.append("td")
                 .text(d.width);
             self.append("td")
                 .text(d.length);
         	self.append("td")
         		.text(d.count);
-        	last_url = d.imageName;
       });
 
     console.log("Image", last_url);
-//    fetchImageAndDisplay(last_url);
     return;
 };
 
@@ -127,12 +135,13 @@ function drawVis(all_data){
     all_data = all_data.sort(function (a, b) {
             return d3.ascending(b.count, a.count);
     })
+
     // Take the top largest elements from data so arrary is not too big.
     var data = all_data.slice(0, MAX_DATA);
     // set the dimensions and margins of the graph
-    var margin = {top: 50, right: 20, bottom: 180, left: 50},
-        width = 1200 - margin.left - margin.right,
-        height = 600 - margin.top - margin.bottom;
+    var margin = {top: 50, right: 20, bottom: 50, left: 50},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
 
     // set the ranges
     var x = d3.scaleBand()
@@ -158,7 +167,7 @@ function drawVis(all_data){
     });
 
     // Scale the range of the data in the domains
-    x.domain(data.map(function(d) { return d.name; }));
+    x.domain(data.map(function(d, i) { return i; }));
     y.domain([0, d3.max(data, function(d) { return d.count; })]);
 
     // append the rectangles for the bar chart
@@ -166,7 +175,7 @@ function drawVis(all_data){
       .data(data)
     .enter().append("rect")
       .attr("class", "bar")
-      .attr("x", function(d) { return x(d.name); })
+      .attr("x", function(d, i) { return x(i); })
       .attr("width", Math.min(x.bandwidth(), 100))
       .attr("y", function(d) { return y(d.count); })
       .attr("height", function(d) { return height - y(d.count); });
@@ -193,14 +202,6 @@ function drawVis(all_data){
     .attr("dy", "1em")
     .style("text-anchor", "middle")
     .text("Count");
-
-    svg.append("text")
-        .attr("x", (width / 2))
-        .attr("y", 10 - (margin.top / 2))
-        .attr("text-anchor", "middle")
-        .style("font-size", "16px")
-        .style("text-decoration", "underline")
-        .text("Top floor counts");
 
 }
 
