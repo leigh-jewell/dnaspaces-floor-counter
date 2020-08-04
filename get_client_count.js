@@ -9,7 +9,7 @@ function getToken(){
 
 function getFloorNames(floor_count_data, hierarchy_data) {
     console.log("getFloorNames(): Adding names to floor counts using hierarchy data.");
-    console.log("getFloorNames(): Firs record of floor_count_data ", floor_count_data[0]);
+    console.log("getFloorNames(): First record of floor_count_data ", floor_count_data[0]);
     console.log("getFloorNames(): Hierarchy_data ", hierarchy_data.map[0]);
     let campus_count = 0;
     let building_count = 0;
@@ -24,7 +24,6 @@ function getFloorNames(floor_count_data, hierarchy_data) {
             let building_floors = b.relationshipData.children;
             building_count += 1;
             building_floors.forEach(function (f) {
-                console.log("getFloorNames(): image name", f.details.image.imageName);
                 floor_names[f.id] = {
                     'name':f.name,
                     'campus':campus.name,
@@ -34,7 +33,7 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                     'imageName': IMAGE_URL.concat(f.details.image.imageName)
                 };
                 if (DEBUG_DATA){
-                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name);
+                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name, f.details.image.imageName);
                 }
                 floor_count += 1;
             })
@@ -66,7 +65,7 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                 missed_floors += 1;
         }
     });
-    console.log("Total number of floors missed", missed_floors);
+    console.log("Total number of floor counts not found in hierarchy", missed_floors);
     return floor_data_names;
 }
 
@@ -87,16 +86,10 @@ function getFloorCount(floor_count_raw) {
 
 function create_table(table_data) {
     console.log("create_table(): Creating table with data. Total records ", table_data.length);
-    d3.select("table").remove();
-    var table_body = d3.select("#floor_count_table").append("table")
-        .append("table").attr("class", "table table-striped")
-        .append("tbody");
-
-    var table_headere = table_body.append("th");
-
-    // create the table header
-    headers = [
+    d3.select("#floor_count_table").select("table").remove();
+    var headers = [
         "Reference",
+        "Campus",
         "Building Name",
         "Floor Name",
         "Floor Id",
@@ -104,23 +97,42 @@ function create_table(table_data) {
         "Length",
         "Count"
     ]
-//    var thead = d3.select("thead").selectAll("th")
-    table_headere
-      .data(headers)
-      .enter().append("th").text(function(d){return d});
+    d3.select("#floor_count_table")
+        .append("table").attr("class", "table table-responsive-sm table-hover")
+        .append("tbody");
+
+    d3.select("tbody")
+        .selectAll("th")
+        .data(headers)
+        .enter()
+        .append("th")
+        .text(function(d){
+            return d
+        });
     // fill the table
     // create rows
     var tr = d3.select("tbody").selectAll("tr")
         .data(table_data)
         .enter()
         .append("tr")
-        .on("click", function(d) { fetchImageAndDisplay(d.imageName); });
+        .on("click", function(d) {
+            $(this).addClass('table-dark').siblings().removeClass('table-dark');
+            fetchImageAndDisplay(d.imageName, d.floorName);
+        });
     // cells
-    var last_url;
+    var found_first_image = false;
     tr.each(function(d, i) {
+        if (found_first_image == false){
+            $(this).addClass('table-dark').siblings().removeClass('table-dark');
+            fetchImageAndDisplay(d.imageName, d.floorName);
+            found_first_image = true;
+            console.log("Getting first row image", d.imageName);
+        }
        	var self = d3.select(this);
             self.append("td")
                 .text(i);
+            self.append("td")
+                .text(d.campus);
             self.append("td")
                 .text(d.building);
             self.append("td")
@@ -134,8 +146,6 @@ function create_table(table_data) {
         	self.append("td")
         		.text(d.count);
       });
-
-    console.log("Image", last_url);
     return;
 };
 
@@ -150,7 +160,7 @@ function drawVis(all_data){
     // set the dimensions and margins of the graph
     var margin = {top: 50, right: 20, bottom: 50, left: 50},
         width = 960 - margin.left - margin.right,
-        height = 500 - margin.top - margin.bottom;
+        height = 800 - margin.top - margin.bottom;
 
     // set the ranges
     var x = d3.scaleBand()
@@ -228,8 +238,9 @@ function convertBlobToBase64(blob) {
 
 }
 
-async function fetchImageAndDisplay(url){
-    console.log("fetchImageAndDisplay():", url);
+async function fetchImageAndDisplay(url, floor_name){
+    console.log("fetchImageAndDisplay():", url, floor_name);
+    document.getElementById('floor_image_status').textContent = "Loading image " + floor_name;
     const image = document.getElementById("image");
     const token = getToken();
     try {
@@ -238,10 +249,11 @@ async function fetchImageAndDisplay(url){
                 "Authorization": token
             }),
         })
-        image.style.width = '50%'
+//        image.style.width = 'auto'
         image.style.height = 'auto'
         image.src = await convertBlobToBase64(await fetchResult.blob());
         console.log("fetchImageAndDisplay(): Finished.")
+        document.getElementById('floor_image_status').textContent = "Done loading image " + floor_name;
       } catch (error) {
         console.error(error);
         }
