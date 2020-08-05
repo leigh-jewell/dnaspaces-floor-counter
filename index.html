@@ -18,44 +18,63 @@
   </head>
   <body>
   <div class="container-fluid">
-    <div class="card">
-      <h5 class="card-header">Cisco DNA Spaces</h5>
-      <div class="card-body">
-        <h5 class="card-title">Floor count</h5>
-        <p class="card-text">Using the power of <a href="https://dnaspaces.cisco.com/" class=""stretched-link">Cisco DNA Spaces</a>, create a table with the number of
-          devices on each floor. You will need to create an API key in DNA Spaces Detect and Locate to use this app.</p>
-        <p>
-          For details use these
-          <a href="https://www.cisco.com/c/en/us/td/docs/wireless/cisco-dna-spaces/detectandlocate/b-cisco-cle/b-cisco-cle_chapter_0110.html" class="stretched-link">DNA Spaces instructions.</a>
-        </p>
-        <div class="input-group mb-3">
-          <div class="input-group-prepend">
-            <button class="btn btn-primary" type="button" onclick="getClientCount()">Go</button>
+    <div class="row">
+      <div class="col">
+        <div class="card">
+          <h5 class="card-header">Cisco DNA Spaces</h5>
+            <div class="card-body">
+              <h5 class="card-title">Detect & Locate API Token <Key></Key></h5>
+               <p class="card-text">Using the power of <a href="https://dnaspaces.cisco.com/" class="stretched-link">Cisco DNA Spaces</a>, create a table with the number of
+              devices on each floor. You will need to create an API key in DNA Spaces Detect and Locate to use this app.
+              For details use these
+              <a href="https://www.cisco.com/c/en/us/td/docs/wireless/cisco-dna-spaces/detectandlocate/b-cisco-cle/b-cisco-cle_chapter_0110.html" class="stretched-link">DNA Spaces instructions.</a>
+            </p>
+              <p class="card-text">Paste in your Detect & Locate API token key into the field below and click on GO. The API token will allow access to your DNA Spaces account and pull the relevant data.</p>
+              <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                  <button class="btn btn-primary" type="button" onclick="getClientCount()">Go</button>
+                </div>
+                <input id="api_token" type="text" class="form-control" placeholder="DNA Spaces Detect & Locate API Token" aria-label="Example text with button addon" aria-describedby="button-addon1">
+              </div>
+              <p class="card-text"><small id="api_token_help" class="text-muted">Status</small></p>
+            </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Bar Chart</h5>
+            <p class="card-text">Top floor counts.</p>
+              <svg id="chart_svg" width="960" height="800" class="card-img-top" ></svg>
           </div>
-          <input id="api_token" type="text" class="form-control" placeholder="DNA Spaces Detect & Locate API Token" aria-label="Example text with button addon" aria-describedby="button-addon1">
-          <div class="col-sm-3">
-            <small id="api_token_help" class="text-danger">
-            </small>
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Floor Image</h5>
+            <p class="card-text">Click on a floor to load the floor image</p>
+            <p class="card-text"><small id="floor_image_status" class="text-muted">Status</small></p>
+            <svg id="image" src="" class="card-img-top" width="960" height="800"></svg>
           </div>
         </div>
       </div>
     </div>
-    <svg width="960" height="500"></svg>
-    <div class="card">
-      <h5 class="card-header">Floor count table</h5>
-      <div class="card-body">
-        <small id="status_floors" class="text-muted">
-        </small>
-        <small id="status_hierarchy" class="text-muted">
-        </small>
-        <table id="floor_count" class="table table-striped">
-          <thead></thead>
-          <tbody></tbody>
-        </table>
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Floor count table</h5>
+              <small id="status_floors" class="text-muted">
+              </small>
+              <small id="status_hierarchy" class="text-muted">
+              </small>
+              <div id="floor_count_table"></div>
+            </div>
+        </div>
       </div>
-    </div>
-    <div class="container">
-
     </div>
   </div>
     <!-- Optional JavaScript -->

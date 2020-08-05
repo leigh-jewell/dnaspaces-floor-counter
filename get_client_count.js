@@ -1,4 +1,5 @@
 const DEBUG_DATA = false;
+const IMAGE_URL = "https://dnaspaces.io/api/location/v1/map/images/floor/"
 
 function getToken(){
     const api_token = document.getElementById('api_token').value;
@@ -8,53 +9,68 @@ function getToken(){
 
 function getFloorNames(floor_count_data, hierarchy_data) {
     console.log("getFloorNames(): Adding names to floor counts using hierarchy data.");
-    console.log("getFloorNames(): Firs record of floor_count_data ", floor_count_data[0]);
+    console.log("getFloorNames(): First record of floor_count_data ", floor_count_data[0]);
     console.log("getFloorNames(): Hierarchy_data ", hierarchy_data.map[0]);
+    let campus_count = 0;
     let building_count = 0;
     let floor_count = 0;
     let floor_names = {};
+    let formatDecimalComma = d3.format(",.2f")
     floor_names['floorId'] = [];
-    let building_data = hierarchy_data.map[0].relationshipData.children;
-    var formatDecimalComma = d3.format(",.2f")
-    building_data.forEach(function (b) {
-        let building_floors = b.relationshipData.children;
-        building_count += 1;
-        building_floors.forEach(function (f) {
-            floor_names[f.id] = {
-                'name':f.name,
-                'building':b.name,
-                'width': formatDecimalComma(f.details.width/3.3),
-                'length': formatDecimalComma(f.details.length/3.3)
-            };
-            if (DEBUG_DATA){
-                console.log("getFloorNames():", b.name, f.id, f.name);
-            }
-            floor_count += 1;
+    hierarchy_data.map.forEach(function (campus){
+        campus_count += 1;
+        let building_data = campus.relationshipData.children;
+        building_data.forEach(function (b) {
+            let building_floors = b.relationshipData.children;
+            building_count += 1;
+            building_floors.forEach(function (f) {
+                floor_names[f.id] = {
+                    'name':f.name,
+                    'campus':campus.name,
+                    'building':b.name,
+                    'width': f.details.width,
+                    'length': f.details.length,
+                    'imageName': IMAGE_URL.concat(f.details.image.imageName)
+                };
+                if (DEBUG_DATA){
+                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name, f.details.image.imageName);
+                }
+                floor_count += 1;
+            })
+        });
         })
-    });
     document.getElementById('status_hierarchy').textContent = "Hierarchy data: Buildings " + building_count +
         " , Floors " + floor_count;
     console.log("getFloorNames(): Add floor names to count");
     let floor_data_names = [];
+    let missed_floors = 0
     floor_count_data.forEach(function (d) {
-        floor_data_names.push({
-            'building': floor_names[d.floorId].building,
-            'name': floor_names[d.floorId].building + ":" + floor_names[d.floorId].name,
-            'floor_name': floor_names[d.floorId].name,
-            'width': floor_names[d.floorId].width,
-            'length': floor_names[d.floorId].length,
-            'floorId': d.floorId,
-            'count': d.count
-        });
-        if (DEBUG_DATA) {
-            console.log("getFloorNames(): Found floor name", floor_names[d.floorId]);
+        if (d.floorId in floor_names){
+            floor_data_names.push({
+                    'campus': floor_names[d.floorId].campus,
+                    'building': floor_names[d.floorId].building,
+                    'name': floor_names[d.floorId].name,
+                    'floorName': floor_names[d.floorId].name,
+                    'width': floor_names[d.floorId].width,
+                    'length': floor_names[d.floorId].length,
+                    'floorId': d.floorId,
+                    'imageName': floor_names[d.floorId].imageName,
+                    'count': d.count
+            });
+            if (DEBUG_DATA) {
+                console.log("getFloorNames(): Found floor name", floor_names[d.floorId]);
+            }
+        } else {
+                console.log("getFloorNames(): Could not find floor id in hierachy. Skipping.", d.floorId)
+                missed_floors += 1;
         }
     });
+    console.log("Total number of floor counts not found in hierarchy", missed_floors);
     return floor_data_names;
 }
 
 function getFloorCount(floor_count_raw) {
-    console.log("getFloorCount(): Get floor count from data. Total raw records ", floor_count_raw.length);
+    console.log("getFloorCount(): Get floor count from data.");
     let floor_data = [];
     let floor_list = floor_count_raw.results;
     let number_floors = 0;
@@ -69,21 +85,69 @@ function getFloorCount(floor_count_raw) {
 }
 
 function create_table(table_data) {
-    console.log("create_table(): Creating table with data. Total records ", table_data.length)
-    // create the table header
-    d3.select('#floor_count').selectAll('tr').remove();
-    var thead = d3.select("thead").selectAll("th")
-      .data(d3.keys(table_data[0]))
-      .enter().append("th").text(function(d){return d});
+    console.log("create_table(): Creating table with data. Total records ", table_data.length);
+    let formatDecimalComma = d3.format(",.2f")
+    d3.select("#floor_count_table").select("table").remove();
+    var headers = [
+        "Reference",
+        "Campus",
+        "Building Name",
+        "Floor Name",
+        "Floor Id",
+        "Width",
+        "Length",
+        "Count"
+    ]
+    d3.select("#floor_count_table")
+        .append("table").attr("class", "table table-responsive-sm table-hover")
+        .append("tbody");
+
+    d3.select("tbody")
+        .selectAll("th")
+        .data(headers)
+        .enter()
+        .append("th")
+        .text(function(d){
+            return d
+        });
     // fill the table
     // create rows
     var tr = d3.select("tbody").selectAll("tr")
-        .data(table_data).enter().append("tr")
+        .data(table_data)
+        .enter()
+        .append("tr")
+        .on("click", function(d) {
+            $(this).addClass('table-dark').siblings().removeClass('table-dark');
+            console.log("create_table() on-click ", d.imageName, d.floorName, d.floorId, d.width, d.length);
+            fetchImageAndDisplay(d.imageName, d.floorName, d.floorId, d.width, d.length);
+        });
     // cells
-    var td = tr.selectAll("td")
-        .data(function(d){return d3.values(d)})
-        .enter().append("td")
-        .text(function(d) {return d})
+    var found_first_image = false;
+    tr.each(function(d, i) {
+        if (found_first_image == false){
+            $(this).addClass('table-dark').siblings().removeClass('table-dark');
+            fetchImageAndDisplay(d.imageName, d.floorName, d.floorId, d.width, d.length);
+            found_first_image = true;
+            console.log("Getting first row image", d.imageName);
+        }
+       	var self = d3.select(this);
+            self.append("td")
+                .text(i);
+            self.append("td")
+                .text(d.campus);
+            self.append("td")
+                .text(d.building);
+            self.append("td")
+                .text(d.floorName);
+            self.append("td")
+                .text(d.floorId);
+            self.append("td")
+                .text(formatDecimalComma(d.width));
+            self.append("td")
+                .text(formatDecimalComma(d.length));
+        	self.append("td")
+        		.text(d.count);
+      });
     return;
 };
 
@@ -92,12 +156,13 @@ function drawVis(all_data){
     all_data = all_data.sort(function (a, b) {
             return d3.ascending(b.count, a.count);
     })
+
     // Take the top largest elements from data so arrary is not too big.
     var data = all_data.slice(0, MAX_DATA);
     // set the dimensions and margins of the graph
-    var margin = {top: 50, right: 20, bottom: 180, left: 50},
-            width = 1200 - margin.left - margin.right,
-        height = 600 - margin.top - margin.bottom;
+    var margin = {top: 50, right: 20, bottom: 50, left: 50},
+        width = 960 - margin.left - margin.right,
+        height = 800 - margin.top - margin.bottom;
 
     // set the ranges
     var x = d3.scaleBand()
@@ -119,22 +184,22 @@ function drawVis(all_data){
 
     // get the data
     data.forEach(function(d) {
-    d.count = +d.count;
+        d.count = +d.count;
     });
 
     // Scale the range of the data in the domains
-    x.domain(data.map(function(d) { return d.name; }));
+    x.domain(data.map(function(d, i) { return i; }));
     y.domain([0, d3.max(data, function(d) { return d.count; })]);
 
     // append the rectangles for the bar chart
     svg.selectAll(".bar")
-      .data(data)
-    .enter().append("rect")
-      .attr("class", "bar")
-      .attr("x", function(d) { return x(d.name); })
-      .attr("width", Math.min(x.bandwidth(), 100))
-      .attr("y", function(d) { return y(d.count); })
-      .attr("height", function(d) { return height - y(d.count); });
+        .data(data)
+        .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d, i) { return x(i); })
+        .attr("width", Math.min(x.bandwidth(), 100))
+        .attr("y", function(d) { return y(d.count); })
+        .attr("height", function(d) { return height - y(d.count); });
 
     // add the x Axis
     svg.append("g")
@@ -159,14 +224,131 @@ function drawVis(all_data){
     .style("text-anchor", "middle")
     .text("Count");
 
-    svg.append("text")
-        .attr("x", (width / 2))
-        .attr("y", 10 - (margin.top / 2))
-        .attr("text-anchor", "middle")
-        .style("font-size", "16px")
-        .style("text-decoration", "underline")
-        .text("Top floor counts");
+}
 
+// Converts any given blob into a base64 encoded string.
+function convertBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      resolve(reader.result);
+    };
+    reader.readAsDataURL(blob);
+
+  });
+
+}
+
+async function fetchImageAndDisplay(url, floor_name, floorId, width, length){
+    console.log("fetchImageAndDisplay():", url, floor_name, width, length);
+    document.getElementById('floor_image_status').textContent = "Loading image " + floor_name;
+    const image = d3.select("#image");
+    const token = getToken();
+    try {
+        const fetchResult = await fetch(url, {
+            headers: new Headers({
+                "Authorization": token
+            }),
+        })
+//        image.style.width = 'auto'
+//        image.style.height = 'auto'
+        var image_data = await convertBlobToBase64(await fetchResult.blob());
+//        image.src = image_data;
+        image.append('image')
+            .attr('xlink:href', image_data)
+            .attr('height', '800')
+            .attr('width', '960');
+        console.log("fetchImageAndDisplay(): Finished.");
+        document.getElementById('floor_image_status').textContent = "Done loading image " + floor_name;
+        fetchDeviceLocation(floorId, width, length);
+      } catch (error) {
+        console.error(error);
+        }
+}
+
+function fetchDeviceLocation(floorId, width, length){
+    console.log("fetchDeviceLocation(): called with floor id ", floorId, width, length);
+    const token = getToken();
+    const url = "https://dnaspaces.io/api/location/v1/clients?deviceType=CLIENT&limit=10000&floorId=" + floorId;
+    const urls = [url];
+   var promises = urls.map(url => fetch(url, {
+            headers: new Headers({
+                "Authorization": token
+            }),
+        }).then(r => {
+            if (!r.ok){
+                console.log("fetchDeviceLocation(): Did not get ok message from server.", r.status);
+                if (r.status == 401){
+                    document.getElementById('floor_image_status').textContent = "Got unauthorized. Invalid token.";
+                } else {
+                    document.getElementById('floor_image_status').textContent = "Connection error. Status code" +
+                        r.status;
+                }
+                throw new Error("fetchDeviceLocation(): Invalid HTTP status " + r.status);
+            }
+            document.getElementById('floor_image_status').textContent = "Adding devices.";
+            return r.text();
+    }));
+    // Now get a Promise to run all those Promises in parallel
+    Promise.all(promises)
+    .then(bodies => {
+        console.log("fetchDeviceLocation(): All URL's have resolved. Number of results ", bodies.length);
+        if (bodies.length >= 1) {
+            var valid_json = false;
+            try {
+                var client_data = JSON.parse(bodies[0]);
+                console.log("fetchDeviceLocation(): data", client_data);
+                valid_json = true;
+            } catch (e) {
+                document.getElementById('floor_image_status').textContent = "Device location JSON parse error " + e;
+            }
+            if (valid_json) {
+                console.log("fetchDeviceLocation(): Total number of clients found on floor", client_data.results.length);
+                document.getElementById('floor_image_status').textContent = "Number of devices found " + client_data.results.length;
+                plotDevices(client_data.results, width, length);
+            }
+        }
+    });
+    console.log("fetchDeviceLocation(): finished.");
+    return;
+}
+
+function plotDevices(client_location, max_width, max_length){
+    console.log("plotDevices(): called", client_location,length, max_width, max_length);
+    var data = client_location;
+    client_location.forEach(function(d){
+        console.log("plotDevices(): Coordinates", d.coordinates);
+    })
+    var margin = {top: 0, right: 0, bottom: 0, left: 0},
+        width = 960 - margin.left - margin.right,
+        height = 800 - margin.top - margin.bottom;
+
+    // set the ranges
+    console.log("plotDevices(): x domain range ", max_width, width);
+    console.log("plotDevices(): y domain range ", max_length, height);
+    var xScale = d3.scaleLinear()
+        .domain([0, max_width])
+        .range([0, width]);
+
+    var yScale = d3.scaleLinear()
+        .domain([max_length, 0])
+        .range([height, 0]);
+    console.log("plotDevices(): x value 100 scaled to ", xScale(100));
+    console.log("plotDevices(): y value 100 scaled to ", yScale(100));
+
+//    x.domain(data.map(function(d, i) { return i; }));
+//    y.domain([0, d3.max(data, function(d) { return d.count; })]);
+
+   d3.select("#image").append("g").attr("id", "devices")
+       .selectAll("circle")
+       .data(data)
+       .enter()
+       .append("circle")
+       .attr("r", 4)
+       .attr("cx", function(d){ return xScale(d.coordinates[0])})
+       .attr("cy", function(d){ return yScale(d.coordinates[1])})
+       .style("fill", "lime");
 }
 
 function getClientCount(){
