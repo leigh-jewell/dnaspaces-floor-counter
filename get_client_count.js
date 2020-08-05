@@ -28,8 +28,8 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                     'name':f.name,
                     'campus':campus.name,
                     'building':b.name,
-                    'width': formatDecimalComma(f.details.width/3.3),
-                    'length': formatDecimalComma(f.details.length/3.3),
+                    'width': f.details.width,
+                    'length': f.details.length,
                     'imageName': IMAGE_URL.concat(f.details.image.imageName)
                 };
                 if (DEBUG_DATA){
@@ -86,6 +86,7 @@ function getFloorCount(floor_count_raw) {
 
 function create_table(table_data) {
     console.log("create_table(): Creating table with data. Total records ", table_data.length);
+    let formatDecimalComma = d3.format(",.2f")
     d3.select("#floor_count_table").select("table").remove();
     var headers = [
         "Reference",
@@ -117,14 +118,15 @@ function create_table(table_data) {
         .append("tr")
         .on("click", function(d) {
             $(this).addClass('table-dark').siblings().removeClass('table-dark');
-            fetchImageAndDisplay(d.imageName, d.floorName);
+            console.log("create_table() on-click ", d.imageName, d.floorName, d.floorId, d.width, d.length);
+            fetchImageAndDisplay(d.imageName, d.floorName, d.floorId, d.width, d.length);
         });
     // cells
     var found_first_image = false;
     tr.each(function(d, i) {
         if (found_first_image == false){
             $(this).addClass('table-dark').siblings().removeClass('table-dark');
-            fetchImageAndDisplay(d.imageName, d.floorName);
+            fetchImageAndDisplay(d.imageName, d.floorName, d.floorId, d.width, d.length);
             found_first_image = true;
             console.log("Getting first row image", d.imageName);
         }
@@ -140,9 +142,9 @@ function create_table(table_data) {
             self.append("td")
                 .text(d.floorId);
             self.append("td")
-                .text(d.width);
+                .text(formatDecimalComma(d.width));
             self.append("td")
-                .text(d.length);
+                .text(formatDecimalComma(d.length));
         	self.append("td")
         		.text(d.count);
       });
@@ -182,7 +184,7 @@ function drawVis(all_data){
 
     // get the data
     data.forEach(function(d) {
-    d.count = +d.count;
+        d.count = +d.count;
     });
 
     // Scale the range of the data in the domains
@@ -191,13 +193,13 @@ function drawVis(all_data){
 
     // append the rectangles for the bar chart
     svg.selectAll(".bar")
-      .data(data)
-    .enter().append("rect")
-      .attr("class", "bar")
-      .attr("x", function(d, i) { return x(i); })
-      .attr("width", Math.min(x.bandwidth(), 100))
-      .attr("y", function(d) { return y(d.count); })
-      .attr("height", function(d) { return height - y(d.count); });
+        .data(data)
+        .enter().append("rect")
+        .attr("class", "bar")
+        .attr("x", function(d, i) { return x(i); })
+        .attr("width", Math.min(x.bandwidth(), 100))
+        .attr("y", function(d) { return y(d.count); })
+        .attr("height", function(d) { return height - y(d.count); });
 
     // add the x Axis
     svg.append("g")
@@ -238,10 +240,10 @@ function convertBlobToBase64(blob) {
 
 }
 
-async function fetchImageAndDisplay(url, floor_name){
-    console.log("fetchImageAndDisplay():", url, floor_name);
+async function fetchImageAndDisplay(url, floor_name, floorId, width, length){
+    console.log("fetchImageAndDisplay():", url, floor_name, width, length);
     document.getElementById('floor_image_status').textContent = "Loading image " + floor_name;
-    const image = document.getElementById("image");
+    const image = d3.select("#image");
     const token = getToken();
     try {
         const fetchResult = await fetch(url, {
@@ -250,13 +252,103 @@ async function fetchImageAndDisplay(url, floor_name){
             }),
         })
 //        image.style.width = 'auto'
-        image.style.height = 'auto'
-        image.src = await convertBlobToBase64(await fetchResult.blob());
-        console.log("fetchImageAndDisplay(): Finished.")
+//        image.style.height = 'auto'
+        var image_data = await convertBlobToBase64(await fetchResult.blob());
+//        image.src = image_data;
+        image.append('image')
+            .attr('xlink:href', image_data)
+            .attr('height', '800')
+            .attr('width', '960');
+        console.log("fetchImageAndDisplay(): Finished.");
         document.getElementById('floor_image_status').textContent = "Done loading image " + floor_name;
+        fetchDeviceLocation(floorId, width, length);
       } catch (error) {
         console.error(error);
         }
+}
+
+function fetchDeviceLocation(floorId, width, length){
+    console.log("fetchDeviceLocation(): called with floor id ", floorId, width, length);
+    const token = getToken();
+    const url = "https://dnaspaces.io/api/location/v1/clients?deviceType=CLIENT&limit=10000&floorId=" + floorId;
+    const urls = [url];
+   var promises = urls.map(url => fetch(url, {
+            headers: new Headers({
+                "Authorization": token
+            }),
+        }).then(r => {
+            if (!r.ok){
+                console.log("fetchDeviceLocation(): Did not get ok message from server.", r.status);
+                if (r.status == 401){
+                    document.getElementById('floor_image_status').textContent = "Got unauthorized. Invalid token.";
+                } else {
+                    document.getElementById('floor_image_status').textContent = "Connection error. Status code" +
+                        r.status;
+                }
+                throw new Error("fetchDeviceLocation(): Invalid HTTP status " + r.status);
+            }
+            document.getElementById('floor_image_status').textContent = "Adding devices.";
+            return r.text();
+    }));
+    // Now get a Promise to run all those Promises in parallel
+    Promise.all(promises)
+    .then(bodies => {
+        console.log("fetchDeviceLocation(): All URL's have resolved. Number of results ", bodies.length);
+        if (bodies.length >= 1) {
+            var valid_json = false;
+            try {
+                var client_data = JSON.parse(bodies[0]);
+                console.log("fetchDeviceLocation(): data", client_data);
+                valid_json = true;
+            } catch (e) {
+                document.getElementById('floor_image_status').textContent = "Device location JSON parse error " + e;
+            }
+            if (valid_json) {
+                console.log("fetchDeviceLocation(): Total number of clients found on floor", client_data.results.length);
+                document.getElementById('floor_image_status').textContent = "Number of devices found " + client_data.results.length;
+                plotDevices(client_data.results, width, length);
+            }
+        }
+    });
+    console.log("fetchDeviceLocation(): finished.");
+    return;
+}
+
+function plotDevices(client_location, max_width, max_length){
+    console.log("plotDevices(): called", client_location,length, max_width, max_length);
+    var data = client_location;
+    client_location.forEach(function(d){
+        console.log("plotDevices(): Coordinates", d.coordinates);
+    })
+    var margin = {top: 0, right: 0, bottom: 0, left: 0},
+        width = 960 - margin.left - margin.right,
+        height = 800 - margin.top - margin.bottom;
+
+    // set the ranges
+    console.log("plotDevices(): x domain range ", max_width, width);
+    console.log("plotDevices(): y domain range ", max_length, height);
+    var xScale = d3.scaleLinear()
+        .domain([0, max_width])
+        .range([0, width]);
+
+    var yScale = d3.scaleLinear()
+        .domain([max_length, 0])
+        .range([height, 0]);
+    console.log("plotDevices(): x value 100 scaled to ", xScale(100));
+    console.log("plotDevices(): y value 100 scaled to ", yScale(100));
+
+//    x.domain(data.map(function(d, i) { return i; }));
+//    y.domain([0, d3.max(data, function(d) { return d.count; })]);
+
+   d3.select("#image").append("g").attr("id", "devices")
+       .selectAll("circle")
+       .data(data)
+       .enter()
+       .append("circle")
+       .attr("r", 4)
+       .attr("cx", function(d){ return xScale(d.coordinates[0])})
+       .attr("cy", function(d){ return yScale(d.coordinates[1])})
+       .style("fill", "lime");
 }
 
 function getClientCount(){
