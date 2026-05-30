@@ -30,10 +30,10 @@ function getFloorNames(floor_count_data, hierarchy_data) {
                     'building':b.name,
                     'width': f.details.width,
                     'length': f.details.length,
-                    'imageName': IMAGE_URL.concat(f.details.image.imageName)
+                    'imageName': f.details.image?.imageName ? IMAGE_URL.concat(f.details.image.imageName) : ''
                 };
                 if (DEBUG_DATA){
-                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name, f.details.image.imageName);
+                    console.log("getFloorNames():", campus.name, b.name, f.id, f.name, f.details.image?.imageName);
                 }
                 floor_count += 1;
             })
